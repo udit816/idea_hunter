@@ -2,9 +2,9 @@ import os
 import time
 import json
 import google.generativeai as genai
-from ..state import ValidatedIdea, PainPoint, ProductSpec
+from ..state import DiscoveryData, ProblemStatement
 
-class ArchitectAgent:
+class DiscoveryAgent:
     def __init__(self):
         genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
         self.available_models = []
@@ -18,30 +18,40 @@ class ArchitectAgent:
         except:
             self.available_models = ['models/gemini-1.5-flash-latest']
 
-    def create_spec(self, idea: ValidatedIdea, pains: list[PainPoint]) -> ProductSpec:
-        print(f"   [Architect] Designing MVP for: '{idea.target_keyword}'...")
-        
-        pain_context = "\n".join([f"- {p.pain_category}: {p.quote}" for p in pains[:5]])
+    def discover(self, raw_input: str) -> DiscoveryData:
+        print(f"   [Discovery] Analyzing input: '{raw_input}'...")
         
         prompt = f"""
-        Act as a Senior Product Manager for a MicroSaaS.
+        You are a Product Discovery Agent.
+
+        INPUT: "{raw_input}"
         
-        CONTEXT:
-        We are building a tool to solve this specific problem: "{idea.description}".
-        The users are complaining about these things in current solutions:
-        {pain_context}
-        
-        YOUR TASK:
-        Design a "Minimum Viable Product" (MVP) spec. Keep it lean, simple, and solvable by a solo developer.
-        
-        RETURN JSON ONLY with this structure:
+        INPUT may contain:
+        - URLs
+        - competitor names
+        - vague ideas
+        - observations
+        - partial hypotheses
+
+        Your task:
+        1. Infer what market or workflow the user is exploring
+        2. Generate 2–3 PROBLEM STATEMENTS (not solutions)
+        3. Each problem must be:
+           - Specific
+           - Painful
+           - Experienced repeatedly
+           - Expressed in user language
+
+        RETURN JSON ONLY:
         {{
-            "mvp_name": "Catchy Name",
-            "tagline": "Short value prop",
-            "core_features": ["Feature 1", "Feature 2", "Feature 3"],
-            "tech_stack_recommendation": ["Frontend tool", "Backend tool", "Database"],
-            "user_stories": ["As a user, I want to...", "As a user, I need to..."],
-            "marketing_hook": "The one-liner for the landing page hero section"
+          "interpreted_domain": "...",
+          "problem_statements": [
+            {{
+              "who": "persona",
+              "problem": "clear pain statement",
+              "why_now": "why this problem matters today"
+            }}
+          ]
         }}
         """
 
@@ -52,7 +62,7 @@ class ArchitectAgent:
                 response = model.generate_content(prompt)
                 cleaned = response.text.replace("```json", "").replace("```", "").strip()
                 data = json.loads(cleaned)
-                return ProductSpec(**data)
+                return DiscoveryData(**data)
             except Exception as e:
                 if "429" in str(e):
                     time.sleep(5)
@@ -60,13 +70,15 @@ class ArchitectAgent:
                         response = model.generate_content(prompt)
                         cleaned = response.text.replace("```json", "").replace("```", "").strip()
                         data = json.loads(cleaned)
-                        return ProductSpec(**data)
+                        return DiscoveryData(**data)
                     except:
                         pass
                 continue
         
-        # Fallback empty spec if AI fails completely
-        return ProductSpec(
-            mvp_name="Error Generating Spec", tagline="", core_features=[], 
-            tech_stack_recommendation=[], user_stories=[], marketing_hook=""
+        # Fallback
+        return DiscoveryData(
+            interpreted_domain="Unknown Domain", 
+            problem_statements=[
+                ProblemStatement(who="Unknown", problem="Could not analyze input", why_now="Error in AI processing")
+            ]
         )
