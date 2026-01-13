@@ -58,7 +58,7 @@ class ResearchState(BaseModel):
     competitors: List[Competitor] = Field(default_factory=list)
     pain_points: List[PainPoint] = Field(default_factory=list)
     final_ideas: List[ValidatedIdea] = Field(default_factory=list)
-    product_specs: Optional[ProductSpec] = None
+    product_spec: Optional[ProductSpec] = None
 
     # Human Feedback Slot
     user_feedback: Optional[str] = None

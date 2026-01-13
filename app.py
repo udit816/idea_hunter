@@ -32,6 +32,7 @@ if "verifier" not in st.session_state:
     st.session_state.hunter = None
     st.session_state.miner = None
     st.session_state.validator = None
+    st.session_state.architect = ArchitectAgent()
     st.session_state.reporter = ReportGenerator()
 
 # --- SIDEBAR (Configuration) ---
